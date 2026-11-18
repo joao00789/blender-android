@@ -1,19 +1,20 @@
-# Roadmap — Modelador 3D mobile
+# Roadmap — Modelador 3D Android nativo
 
 O Blender tem milhões de linhas de código e mais de 20 anos de desenvolvimento.
 Aqui o caminho é ir cobrindo os recursos por fases, na ordem em que mais importam.
 
-## Fase 1 (esta versão)
-- Viewport 3D com câmera orbital (1 dedo orbita, 2 dedos zoom e mover)
-- Primitivas: cubo, esfera, cilindro, cone, plano, toro
-- Selecionar, mover (XZ / Y / tela), girar, escalar, campos numéricos
-- Cor, duplicar, excluir, exportar GLB
+## Fase 1 — fundação nativa
+- Viewport OpenGL ES com cubo e câmera orbital
+- Touch, mouse, roda do mouse e teclado
+- Arquitetura Android nativa sem Godot
+- Tela inicial de configuração de provedores de IA
 
-## Fase 2 — base de projeto + IA
+## Fase 2 — cena e IA
 - Salvar e abrir projeto, desfazer/refazer
 - Outliner (lista/hierarquia de objetos), multisseleção, snap, pivô
 - Luzes e câmeras
-- Camada de comandos (cada ação vira um comando) + tela de configuração de IA com provedores
+- Camada de comandos (cada ação vira um comando)
+- Adaptadores Groq, OpenAI, Anthropic, Gemini e OpenRouter
 
 ## Fase 3 — modo de edição
 - Malha editável (vértices, arestas, faces) com SurfaceTool/ArrayMesh

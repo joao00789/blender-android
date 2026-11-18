@@ -1,16 +1,20 @@
-# Modelador 3D (Godot 4.3)
+# Modelador 3D Android
 
-App Android de modelagem 3D para uso privado.
+Aplicativo nativo Android de modelagem 3D, inspirado no Blender. Não usa Godot.
 
-## Gerar o APK
-1. Crie um repositório no GitHub e envie estes arquivos (branch `main`).
-2. Abra a aba **Actions**, rode **Build APK** (ou faça um push).
-3. Baixe o artefato `modelador3d-apk`, extraia e instale o APK.
+## Base técnica
 
-## Testar no computador
-Abra a pasta no Godot 4.3 e aperte F5. Mouse: botão esquerdo orbita/transforma,
-botão direito ou do meio move a câmera, roda do mouse dá zoom.
+- Kotlin e Android SDK para a aplicação e a interface.
+- OpenGL ES 3.0 para o viewport 3D inicial.
+- Gradle para gerar o APK no GitHub Actions.
+- Arquitetura preparada para um núcleo de geometria em C++/NDK e adaptadores de IA.
 
-## Observação
-Esta versão foi escrita sem poder executar o Godot no ambiente de criação.
-Se o Actions ou o app mostrar erro, copie a mensagem e envie para corrigirmos.
+## Build
+
+O workflow **Build APK** usa Java 17, Android SDK e Gradle. O APK de debug é publicado
+como o artefato `modelador3d-apk`.
+
+## Controles
+
+Touch e mouse orbitam o viewport; dois dedos fazem zoom; a roda do mouse também faz
+zoom; Delete remove o objeto selecionado; teclado e mouse são suportados pelo viewport.

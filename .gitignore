@@ -1,5 +1,8 @@
-.godot/
+.gradle/
 build/
+**/build/
 *.apk
 *.aab
-*.keystore
+local.properties
+.idea/
+*.iml

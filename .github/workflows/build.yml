@@ -28,7 +28,21 @@ jobs:
             -keystore ~/debug.keystore -storepass android \
             -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
 
-          # gera o arquivo de configurações do editor (importa os recursos) e acrescenta as do Android
+          # Garante os componentes exatos exigidos pelo preset Android do Godot 4.3.
+          SDK_ROOT=/usr/lib/android-sdk
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ] && [ -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager não encontrado no container"
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
+            "platform-tools" "build-tools;33.0.2" "platforms;android-33"
+
+          # Gera o arquivo de configurações do editor e acrescenta as do Android
           godot --headless -e --quit || true
           F=$(ls ~/.config/godot/editor_settings-*.tres 2>/dev/null | head -1)
           if [ -z "$F" ]; then

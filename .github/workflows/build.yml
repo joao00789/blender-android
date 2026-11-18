@@ -30,9 +30,12 @@ jobs:
 
           # Garante os componentes exatos exigidos pelo preset Android do Godot 4.3.
           SDK_ROOT=/usr/lib/android-sdk
-          SDKMANAGER="$(command -v sdkmanager || true)"
-          if [ -z "$SDKMANAGER" ] && [ -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
-            SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          export ANDROID_HOME="$SDK_ROOT"
+          export ANDROID_SDK_ROOT="$SDK_ROOT"
+          export PATH="$SDK_ROOT/cmdline-tools/cmdline-tools/bin:$SDK_ROOT/cmdline-tools/latest/bin:$SDK_ROOT/platform-tools:$PATH"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(command -v sdkmanager || true)"
           fi
           if [ -z "$SDKMANAGER" ]; then
             echo "sdkmanager não encontrado no container"
@@ -41,6 +44,8 @@ jobs:
           yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
             "platform-tools" "build-tools;33.0.2" "platforms;android-33"
+          test -x "$SDK_ROOT/build-tools/33.0.2/aapt2"
+          test -f "$SDK_ROOT/platforms/android-33/android.jar"
 
           # Gera o arquivo de configurações do editor e acrescenta as do Android
           godot --headless -e --quit || true
@@ -56,6 +61,7 @@ jobs:
             echo "export/android/debug_keystore = \"$HOME/debug.keystore\""
             echo 'export/android/debug_keystore_user = "androiddebugkey"'
             echo 'export/android/debug_keystore_pass = "android"'
+            echo 'export/android/force_system_user = false'
             echo 'export/android/shutdown_adb_on_exit = true'
           } >> "$F"
 

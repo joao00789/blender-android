@@ -1,0 +1,54 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-22.04
+    container:
+      image: barichello/godot-ci:4.3
+    env:
+      GODOT_VERSION: "4.3"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar Godot e Android
+        run: |
+          DEST=~/.local/share/godot/export_templates
+          mkdir -p "$DEST" ~/.config/godot
+          if [ "$HOME" != "/root" ]; then
+            cp -r /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable "$DEST/"
+          fi
+
+          # keystore de debug
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
+            -keystore ~/debug.keystore -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+
+          # gera o arquivo de configurações do editor (importa os recursos) e acrescenta as do Android
+          godot --headless -e --quit || true
+          F=$(ls ~/.config/godot/editor_settings-*.tres 2>/dev/null | head -1)
+          if [ -z "$F" ]; then
+            F=~/.config/godot/editor_settings-4.3.tres
+            printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\n' > "$F"
+          fi
+          {
+            echo 'export/android/android_sdk_path = "/usr/lib/android-sdk"'
+            echo "export/android/debug_keystore = \"$HOME/debug.keystore\""
+            echo 'export/android/debug_keystore_user = "androiddebugkey"'
+            echo 'export/android/debug_keystore_pass = "android"'
+            echo 'export/android/shutdown_adb_on_exit = true'
+          } >> "$F"
+
+      - name: Exportar APK
+        run: |
+          mkdir -p build
+          godot --headless --verbose --export-debug "Android" build/modelador3d.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: modelador3d-apk
+          path: build/modelador3d.apk

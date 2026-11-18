@@ -282,7 +282,7 @@ func _on_mouse_motion(e: InputEventMouseMotion) -> void:
             cam_rig.pan(e.relative)
         "transform":
             drag_moved += e.relative.length()
-            _apply_tool(e)
+            _apply_tool(e.relative, e.position)
 
 
 func _begin_drag(pos: Vector2) -> void:
@@ -314,7 +314,7 @@ func _on_touch_motion(e: InputEventScreenDrag) -> void:
         cam_rig.orbit(e.relative)
     elif drag_mode == "transform":
         drag_moved += e.relative.length()
-        _apply_tool(e)
+        _apply_tool(e.relative, e.position)
 
 
 func _end_drag() -> void:
@@ -357,19 +357,19 @@ func _drag_move(pos: Vector2) -> void:
         selected.global_position = np
 
 
-func _apply_tool(e: InputEventMouseMotion) -> void:
+func _apply_tool(relative: Vector2, position: Vector2) -> void:
     if not is_instance_valid(selected):
         return
     match current_tool:
         "move":
-            _drag_move(e.position)
+            _drag_move(position)
         "rotate":
             var cam_x := cam_rig.camera.global_transform.basis.x.normalized()
-            var q := Quaternion(Vector3.UP, e.relative.x * 0.01) * selected.quaternion
-            q = Quaternion(cam_x, e.relative.y * 0.01) * q
+            var q := Quaternion(Vector3.UP, relative.x * 0.01) * selected.quaternion
+            q = Quaternion(cam_x, relative.y * 0.01) * q
             selected.quaternion = q.normalized()
         "scale":
-            var f := 1.0 - e.relative.y * 0.005
+            var f := 1.0 - relative.y * 0.005
             selected.scale = (selected.scale * f).clamp(Vector3.ONE * 0.05, Vector3.ONE * 50.0)
     _refresh_props()
 

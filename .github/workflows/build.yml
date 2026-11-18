@@ -17,61 +17,75 @@ jobs:
 
       - name: Preparar Godot e Android
         run: |
-          DEST=~/.local/share/godot/export_templates
-          mkdir -p "$DEST" ~/.config/godot
-          TEMPLATE_SRC=/root/.local/share/godot/export_templates/${GODOT_VERSION}.stable
-          if [ ! -d "$DEST/${GODOT_VERSION}.stable" ] && [ -d "$TEMPLATE_SRC" ]; then
+          set -euo pipefail
+          DEST="$HOME/.local/share/godot/export_templates"
+          mkdir -p "$DEST" "$HOME/.config/godot"
+
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/lib/android-sdk}}"
+          if [ ! -d "$SDK" ]; then
+            CMDLINE_TOOLS_DIR="$(find / -maxdepth 4 -type d -name cmdline-tools 2>/dev/null | head -n 1 || true)"
+            if [ -n "$CMDLINE_TOOLS_DIR" ]; then
+              SDK="$(dirname "$CMDLINE_TOOLS_DIR")"
+            fi
+          fi
+          echo "Android SDK: $SDK"
+          test -d "$SDK"
+          export ANDROID_HOME="$SDK"
+          export ANDROID_SDK_ROOT="$SDK"
+
+          JAVAC="$(command -v javac)"
+          JDK="$(dirname "$(dirname "$(readlink -f "$JAVAC")")")"
+          echo "JDK: $JDK"
+          test -x "$JDK/bin/javac"
+          test -x "$JDK/bin/jarsigner"
+          export JAVA_HOME="$JDK"
+
+          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+          fi
+          test -x "$SDKMANAGER"
+          export PATH="$SDK/cmdline-tools/latest/bin:$SDK/platform-tools:$PATH"
+          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$SDK" \
+            "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          ls -la "$SDK/platform-tools/adb" "$SDK/build-tools/34.0.0" "$SDK/platforms/android-34"
+
+          TEMPLATE_SRC="/root/.local/share/godot/export_templates/4.3.stable"
+          TEMPLATE_DEST="$DEST/4.3.stable"
+          if [ ! -d "$TEMPLATE_DEST" ] && [ -d "$TEMPLATE_SRC" ]; then
             cp -r "$TEMPLATE_SRC" "$DEST/"
           fi
+          ls -la "$TEMPLATE_DEST"
+          test -f "$TEMPLATE_DEST/android_debug.apk"
+          test -f "$TEMPLATE_DEST/android_source.zip"
 
-          # keystore de debug
-          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
-            -keystore ~/debug.keystore -storepass android \
-            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          if [ ! -f "$HOME/debug.keystore" ]; then
+            keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
+              -keystore "$HOME/debug.keystore" -storepass android \
+              -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          fi
+          ls -la "$HOME/debug.keystore"
 
-          # Garante os componentes exatos exigidos pelo preset Android do Godot 4.3.
-          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/lib/android-sdk}}"
-          if [ ! -d "$SDK_ROOT" ]; then
-            for candidate in /usr/lib/android-sdk /opt/android-sdk /opt/android-sdk-linux; do
-              if [ -d "$candidate" ]; then
-                SDK_ROOT="$candidate"
-                break
-              fi
-            done
+          godot --headless -e --quit || true
+          SETTINGS="$HOME/.config/godot/editor_settings-4.3.tres"
+          if [ ! -f "$SETTINGS" ]; then
+            printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\n' > "$SETTINGS"
           fi
-          export ANDROID_HOME="$SDK_ROOT"
-          export ANDROID_SDK_ROOT="$SDK_ROOT"
-          export PATH="$SDK_ROOT/cmdline-tools/cmdline-tools/bin:$SDK_ROOT/cmdline-tools/latest/bin:$SDK_ROOT/platform-tools:$PATH"
-          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
-          if [ -z "$SDKMANAGER" ]; then
-            SDKMANAGER="$(command -v sdkmanager || true)"
+          sed -i '/^export\/android\//d' "$SETTINGS"
+          if ! grep -q '^\[resource\]' "$SETTINGS"; then
+            printf '\n[resource]\n' >> "$SETTINGS"
           fi
-          if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager não encontrado no container"
-            exit 1
-          fi
-          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
-            "platform-tools" "build-tools;34.0.0" "platforms;android-34" "cmdline-tools;latest"
-          test -x "$SDK_ROOT/build-tools/34.0.0/aapt2"
-          test -f "$SDK_ROOT/platforms/android-34/android.jar"
-
-          # Gera o arquivo de configurações do editor e acrescenta as do Android
-          godot --headless --path . --editor --quit
-          F="$HOME/.config/godot/editor_settings-4.3.tres"
-          if [ ! -f "$F" ]; then
-            printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\n' > "$F"
-          fi
-          JAVA_HOME="${JAVA_HOME:-$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")}" 
           {
-            echo "export/android/android_sdk_path = \"$SDK_ROOT\""
-            echo "export/android/java_sdk_path = \"$JAVA_HOME\""
+            echo "export/android/android_sdk_path = \"$SDK\""
+            echo "export/android/java_sdk_path = \"$JDK\""
             echo "export/android/debug_keystore = \"$HOME/debug.keystore\""
             echo 'export/android/debug_keystore_user = "androiddebugkey"'
             echo 'export/android/debug_keystore_pass = "android"'
-            echo 'export/android/force_system_user = false'
             echo 'export/android/shutdown_adb_on_exit = true'
-          } >> "$F"
+          } >> "$SETTINGS"
+          echo '=== Final editor settings ==='
+          cat "$SETTINGS"
 
       - name: Diagnosticar ambiente Android e Godot
         run: |
@@ -101,8 +115,25 @@ jobs:
 
       - name: Exportar APK
         run: |
+          set -o pipefail
           mkdir -p build
-          godot --headless --verbose --export-debug "Android" build/modelador3d.apk
+          set +e
+          godot --headless --verbose --export-debug "Android" build/modelador3d.apk 2>&1 | tee export.log
+          EXPORT_STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$EXPORT_STATUS" -ne 0 ]; then
+            echo '=== Configuration error context ==='
+            grep -n -i -B3 -A25 'configuration errors' export.log || true
+          fi
+          exit "$EXPORT_STATUS"
+
+      - name: Upload export log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: export-log
+          path: export.log
+          if-no-files-found: warn
 
       - uses: actions/upload-artifact@v4
         with:

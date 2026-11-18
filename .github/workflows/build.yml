@@ -19,8 +19,9 @@ jobs:
         run: |
           DEST=~/.local/share/godot/export_templates
           mkdir -p "$DEST" ~/.config/godot
-          if [ "$HOME" != "/root" ]; then
-            cp -r /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable "$DEST/"
+          TEMPLATE_SRC=/root/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          if [ ! -d "$DEST/${GODOT_VERSION}.stable" ] && [ -d "$TEMPLATE_SRC" ]; then
+            cp -r "$TEMPLATE_SRC" "$DEST/"
           fi
 
           # keystore de debug
@@ -29,7 +30,15 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
 
           # Garante os componentes exatos exigidos pelo preset Android do Godot 4.3.
-          SDK_ROOT=/usr/lib/android-sdk
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/lib/android-sdk}}"
+          if [ ! -d "$SDK_ROOT" ]; then
+            for candidate in /usr/lib/android-sdk /opt/android-sdk /opt/android-sdk-linux; do
+              if [ -d "$candidate" ]; then
+                SDK_ROOT="$candidate"
+                break
+              fi
+            done
+          fi
           export ANDROID_HOME="$SDK_ROOT"
           export ANDROID_SDK_ROOT="$SDK_ROOT"
           export PATH="$SDK_ROOT/cmdline-tools/cmdline-tools/bin:$SDK_ROOT/cmdline-tools/latest/bin:$SDK_ROOT/platform-tools:$PATH"
@@ -43,20 +52,19 @@ jobs:
           fi
           yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
-            "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+            "platform-tools" "build-tools;34.0.0" "platforms;android-34" "cmdline-tools;latest"
           test -x "$SDK_ROOT/build-tools/34.0.0/aapt2"
           test -f "$SDK_ROOT/platforms/android-34/android.jar"
 
           # Gera o arquivo de configurações do editor e acrescenta as do Android
-          godot --headless -e --quit || true
-          F=$(ls ~/.config/godot/editor_settings-*.tres 2>/dev/null | head -1)
-          if [ -z "$F" ]; then
-            F=~/.config/godot/editor_settings-4.3.tres
+          godot --headless --path . --editor --quit
+          F="$HOME/.config/godot/editor_settings-4.3.tres"
+          if [ ! -f "$F" ]; then
             printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\n' > "$F"
           fi
-          JAVA_HOME="${JAVA_HOME:-$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")}" 
+          JAVA_HOME="${JAVA_HOME:-$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")}" 
           {
-            echo 'export/android/android_sdk_path = "/usr/lib/android-sdk"'
+            echo "export/android/android_sdk_path = \"$SDK_ROOT\""
             echo "export/android/java_sdk_path = \"$JAVA_HOME\""
             echo "export/android/debug_keystore = \"$HOME/debug.keystore\""
             echo 'export/android/debug_keystore_user = "androiddebugkey"'
@@ -64,6 +72,32 @@ jobs:
             echo 'export/android/force_system_user = false'
             echo 'export/android/shutdown_adb_on_exit = true'
           } >> "$F"
+
+      - name: Diagnosticar ambiente Android e Godot
+        run: |
+          echo '=== Java ==='
+          java -version 2>&1 || true
+          echo "JAVA_HOME=${JAVA_HOME:-}"
+          echo '=== Android SDK paths ==='
+          echo "ANDROID_HOME=${ANDROID_HOME:-}"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-}"
+          for path in /usr/lib/android-sdk /usr/lib/android-sdk/cmdline-tools /usr/lib/android-sdk/platform-tools /usr/lib/android-sdk/build-tools /usr/lib/android-sdk/platforms; do
+            echo "--- $path"
+            ls -la "$path" 2>&1 || true
+          done
+          echo '=== Export templates ==='
+          ls -la "$HOME/.local/share/godot/export_templates" 2>&1 || true
+          ls -la "$HOME/.local/share/godot/export_templates/4.3.stable" 2>&1 || true
+          echo '=== Editor settings ==='
+          for settings in "$HOME"/.config/godot/editor_settings-*.tres; do
+            [ -f "$settings" ] || continue
+            echo "--- $settings"
+            cat "$settings"
+          done
+          echo '=== Debug keystore ==='
+          ls -la "$HOME/debug.keystore" 2>&1 || true
+          echo '=== Project import ==='
+          ls -la .godot 2>&1 || true
 
       - name: Exportar APK
         run: |

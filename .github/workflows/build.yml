@@ -43,9 +43,9 @@ jobs:
           fi
           yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" \
-            "platform-tools" "build-tools;33.0.2" "platforms;android-33"
-          test -x "$SDK_ROOT/build-tools/33.0.2/aapt2"
-          test -f "$SDK_ROOT/platforms/android-33/android.jar"
+            "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          test -x "$SDK_ROOT/build-tools/34.0.0/aapt2"
+          test -f "$SDK_ROOT/platforms/android-34/android.jar"
 
           # Gera o arquivo de configurações do editor e acrescenta as do Android
           godot --headless -e --quit || true

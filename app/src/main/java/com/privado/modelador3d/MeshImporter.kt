@@ -48,10 +48,16 @@ object MeshImporter {
         val lines = file.readLines()
         val endHeader = lines.indexOfFirst { it.trim() == "end_header" }
         if (endHeader < 0) return FloatArray(0)
-        val vertexCount = lines.take(endHeader).firstNotNullOfOrNull {
-            Regex("element\\s+vertex\\s+(\\d+)").find(it)?.groupValues?.get(1)?.toIntOrNull()
-        } ?: return FloatArray(0)
-        val vertices = lines.drop(endHeader + 1).take(vertexCount).mapNotNull { line ->
+        var vertexCount: Int? = null
+        for (headerLine in lines.take(endHeader)) {
+            val match = Regex("element\\s+vertex\\s+(\\d+)").find(headerLine)
+            if (match != null) {
+                vertexCount = match.groupValues[1].toIntOrNull()
+                break
+            }
+        }
+        val count = vertexCount ?: return FloatArray(0)
+        val vertices = lines.drop(endHeader + 1).take(count).mapNotNull { line ->
             val p = line.trim().split(Regex("\\s+"))
             if (p.size >= 3) floatArrayOf(p[0].toFloat(), p[1].toFloat(), p[2].toFloat()) else null
         }

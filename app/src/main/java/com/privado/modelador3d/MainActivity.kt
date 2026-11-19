@@ -71,7 +71,7 @@ class MainActivity : Activity() {
         addView(separator(), LinearLayout.LayoutParams(-1, dp(1))); addView(label("TRANSFORMAÇÃO", 11f, muted, true), LinearLayout.LayoutParams(-1, dp(38)))
         addTransformRow(this, "Posição", "0.00     0.00     0.00"); addTransformRow(this, "Rotação", "0.00°    0.00°    0.00°"); addTransformRow(this, "Escala", "1.00     1.00     1.00")
         addView(separator(), LinearLayout.LayoutParams(-1, dp(18))); addView(label("MATERIAL", 11f, muted, true), LinearLayout.LayoutParams(-1, dp(28)))
-        addView(TextView(this@MainActivity).apply { text = "  ▰  Material padrão\n      Base color     #5B89FF"; setTextColor(text); textSize = 13f; setPadding(dp(6), dp(8), 0, dp(8)); background = bg(Color.rgb(34, 38, 48), 8) }, LinearLayout.LayoutParams(-1, dp(68)))
+        addView(TextView(this@MainActivity).apply { text = "  ▰  Material padrão\n      Base color     #5B89FF"; setTextColor(this@MainActivity.text); textSize = 13f; setPadding(dp(6), dp(8), 0, dp(8)); background = bg(Color.rgb(34, 38, 48), 8) }, LinearLayout.LayoutParams(-1, dp(68)))
         val fill = Space(this); addView(fill, LinearLayout.LayoutParams(1, 0, 1f)); addView(label("OUTLINER", 11f, muted, true), LinearLayout.LayoutParams(-1, dp(28)))
         addView(label("▾  Coleção\n    ◇  Cubo", 13f, text, false), LinearLayout.LayoutParams(-1, dp(56)))
     }

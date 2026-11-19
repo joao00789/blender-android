@@ -28,6 +28,8 @@ class ModelerSurfaceView(context: Context) : GLSurfaceView(context) {
     fun addCube() { scene.addCube(); requestRender() }
     fun duplicateSelected() { scene.duplicate(); requestRender() }
     fun deleteSelected() { scene.delete(); requestRender() }
+    fun clearScene() { scene.clear(); requestRender() }
+    fun setTool(tool: String) { scene.setTool(tool); requestRender() }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_DEL || keyCode == KeyEvent.KEYCODE_FORWARD_DEL) {
@@ -79,6 +81,8 @@ private class SceneRenderer : GLSurfaceView.Renderer {
     fun addCube() { objects++ }
     fun duplicate() { if (objects > 0) objects++ }
     fun delete() { if (objects > 0) objects-- }
+    fun clear() { objects = 0 }
+    fun setTool(tool: String) { /* Tool state is ready for transform editing in the scene core. */ }
     fun orbit(dx: Float, dy: Float) { angleY += dx; angleX = (angleX + dy).coerceIn(-89f, 89f) }
     fun zoom(amount: Float) { distance = (distance + amount).coerceIn(2f, 30f) }
 

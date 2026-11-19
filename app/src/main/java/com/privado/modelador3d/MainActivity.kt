@@ -85,7 +85,8 @@ class MainActivity : Activity() {
     private fun addTool(parent: LinearLayout, glyph: String, title: String, tool: String) {
         parent.addView(iconButton(glyph, title, tool == "select") {
             if (tool == "add") showAddMenu()
-            else if (tool == "extrude" || tool == "bevel" || tool == "loop") showComingSoon(title)
+            else if (tool == "extrude") safeAction("Extrudar") { viewport.extrudeSelected(); updateCount() }
+            else if (tool == "bevel" || tool == "loop") showComingSoon(title)
             else safeAction(title) { viewport.setTool(tool); setStatus(title) }
         }, LinearLayout.LayoutParams(-1, dp(58)))
     }
@@ -118,7 +119,7 @@ class MainActivity : Activity() {
 
     private fun timeline(): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), 0, dp(10), 0); background = bg(surface, 0)
-        addView(iconButton("▶", "Reproduzir", false) { setStatus("Reproduzindo animação") }); addView(iconButton("■", "Parar", false) { setStatus("Animação parada") })
+        addView(iconButton("▶", "Reproduzir", false) { safeAction("Reproduzindo animação") { viewport.playAnimation() } }); addView(iconButton("■", "Parar", false) { safeAction("Animação parada") { viewport.stopAnimation() } })
         addView(label("  1 / 250", 12f, muted, false), LinearLayout.LayoutParams(dp(90), -1)); addView(label("│   │   │   │   │   │   │   │   │   │   │", 12f, muted, false), LinearLayout.LayoutParams(0, -1, 1f))
         addView(iconButton("◆", "Adicionar keyframe", true) { setStatus("Keyframe adicionado no frame atual") })
     }
@@ -201,7 +202,7 @@ class MainActivity : Activity() {
         val items = arrayOf("Novo mapa", "Salvar mapa/projeto", "Abrir mapa/projeto")
         AlertDialog.Builder(this).setTitle("Mapa e projeto").setItems(items) { _, which ->
             when (which) {
-                0 -> { viewport.clearScene(); updateCount(); setStatus("Novo mapa criado") }
+                0 -> safeAction("Novo mapa criado") { viewport.clearScene(); updateCount() }
                 1 -> saveMap()
                 2 -> pickFiles(arrayOf("application/json", "application/octet-stream", "*/*"), loadMapRequest)
             }

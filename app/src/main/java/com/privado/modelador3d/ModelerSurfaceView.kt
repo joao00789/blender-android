@@ -35,6 +35,9 @@ class ModelerSurfaceView(context: Context) : GLSurfaceView(context) {
     fun duplicateSelected() { scene.duplicate(); changed() }
     fun deleteSelected() { scene.delete(); changed() }
     fun clearScene() { scene.clear(); changed() }
+    fun extrudeSelected() { scene.extrudeSelected(); changed() }
+    fun playAnimation() { scene.playAnimation(); requestRender() }
+    fun stopAnimation() { scene.stopAnimation(); requestRender() }
     fun setTool(tool: String) { scene.setTool(tool); requestRender() }
     fun undo() { scene.undo(); changed() }
     fun redo() { scene.redo(); changed() }
@@ -79,7 +82,10 @@ class ModelerSurfaceView(context: Context) : GLSurfaceView(context) {
         requestRender(); return true
     }
 
-    private fun changed() { requestRender(); post { onSceneChanged?.invoke() } }
+    private fun changed() {
+        requestRender()
+        post { runCatching { onSceneChanged?.invoke() } }
+    }
 
     private fun distance(e: MotionEvent): Float {
         val dx = e.getX(0) - e.getX(1); val dy = e.getY(0) - e.getY(1)
@@ -115,6 +121,9 @@ private class SceneRenderer : GLSurfaceView.Renderer {
     private val redoStack = ArrayDeque<List<SceneObject>>()
     private var selectedIndex = 0
     private var tool = "select"
+    private var animationPlaying = false
+    private var animationTime = 0f
+    private var lastFrameNanos = 0L
     private val projection = FloatArray(16)
     private val view = FloatArray(16)
     private val model = FloatArray(16)
@@ -161,6 +170,15 @@ private class SceneRenderer : GLSurfaceView.Renderer {
         objects.removeAt(selectedIndex); selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
     }
     @Synchronized fun clear() { if (objects.isEmpty()) return; remember(); objects.clear(); selectedIndex = -1 }
+    @Synchronized fun extrudeSelected() {
+        if (selectedIndex !in objects.indices) return
+        remember()
+        val source = objects[selectedIndex]
+        objects.add(source.copy(name = source.name + "_extrude", y = source.y + 0.65f, sx = source.sx * 0.92f, sy = source.sy * 0.92f, sz = source.sz * 0.92f))
+        selectedIndex = objects.lastIndex
+    }
+    @Synchronized fun playAnimation() { animationPlaying = true; lastFrameNanos = System.nanoTime() }
+    @Synchronized fun stopAnimation() { animationPlaying = false; lastFrameNanos = 0L }
     @Synchronized fun undo() {
         if (undoStack.isEmpty()) return
         redoStack.addLast(objects.map { it.copy() }); objects.clear(); objects.addAll(undoStack.removeLast().map { it.copy() }); selectedIndex = if (objects.isEmpty()) -1 else selectedIndex.coerceIn(0, objects.lastIndex)
@@ -280,11 +298,24 @@ private class SceneRenderer : GLSurfaceView.Renderer {
 
     override fun onDrawFrame(gl: GL10?) {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
+        if (program == 0) return
         GLES30.glEnable(GLES30.GL_DEPTH_TEST)
         Matrix.setLookAtM(view, 0, 0f, 0f, distance, 0f, 0f, 0f, 0f, 1f, 0f)
         GLES30.glUseProgram(program)
-        val objectsToDraw = synchronized(this) { objects.map { it.copy() } }
-        val currentTool = synchronized(this) { tool }
+        val now = System.nanoTime()
+        val frameState = synchronized(this) {
+            if (animationPlaying) {
+                if (lastFrameNanos == 0L) lastFrameNanos = now
+                val delta = ((now - lastFrameNanos) / 1_000_000_000f).coerceIn(0f, 0.1f)
+                lastFrameNanos = now
+                animationTime += delta
+                objects.getOrNull(selectedIndex)?.ry = animationTime * 45f
+            }
+            Triple(objects.map { it.copy() }, tool, selectedIndex)
+        }
+        val objectsToDraw = frameState.first
+        val currentTool = frameState.second
+        val currentSelection = frameState.third
         val pos = GLES30.glGetAttribLocation(program, "aPosition"); val color = GLES30.glGetAttribLocation(program, "aColor")
         val tint = GLES30.glGetUniformLocation(program, "uTint")
         objectsToDraw.forEachIndexed { index, object3d ->
@@ -298,8 +329,9 @@ private class SceneRenderer : GLSurfaceView.Renderer {
                     java.nio.ByteBuffer.allocateDirect(mesh.size * 4).order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer().apply { put(mesh); position(0) }
                 }
             } else {
-                meshBuffers[object3d.kind] ?: meshBuffers["Cubo"]!!
+                meshBuffers[object3d.kind] ?: meshBuffers["Cubo"]
             }
+            if (vertexBuffer == null || vertexBuffer.limit() < 6) return@forEachIndexed
             vertexBuffer.position(0); GLES30.glVertexAttribPointer(pos, 3, GLES30.GL_FLOAT, false, 6 * 4, vertexBuffer); GLES30.glEnableVertexAttribArray(pos)
             vertexBuffer.position(3); GLES30.glVertexAttribPointer(color, 3, GLES30.GL_FLOAT, false, 6 * 4, vertexBuffer); GLES30.glEnableVertexAttribArray(color)
             Matrix.setIdentityM(model, 0)
@@ -309,9 +341,9 @@ private class SceneRenderer : GLSurfaceView.Renderer {
             Matrix.rotateM(model, 0, angleX, 1f, 0f, 0f); Matrix.rotateM(model, 0, angleY, 0f, 1f, 0f)
             Matrix.multiplyMM(mvp, 0, view, 0, model, 0); Matrix.multiplyMM(mvp, 0, projection, 0, mvp, 0)
             GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(program, "uMvp"), 1, false, mvp, 0)
-            if (index == selectedIndex) GLES30.glUniform4f(tint, 1.25f, 1.25f, 1.25f, 1f) else GLES30.glUniform4f(tint, 1f, 1f, 1f, 1f)
+            if (index == currentSelection) GLES30.glUniform4f(tint, 1.25f, 1.25f, 1.25f, 1f) else GLES30.glUniform4f(tint, 1f, 1f, 1f, 1f)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, vertexBuffer.limit() / 6)
-            if (currentTool == "edit" && index == selectedIndex) {
+            if (currentTool == "edit" && index == currentSelection) {
                 GLES30.glDrawArrays(GLES30.GL_POINTS, 0, vertexBuffer.limit() / 6)
             }
         }

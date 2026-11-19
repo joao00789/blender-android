@@ -150,13 +150,13 @@ private class SceneRenderer : GLSurfaceView.Renderer {
         selected.texturePath = path
     }
     @Synchronized fun duplicate() {
-        if (objects.isEmpty()) return
+        if (selectedIndex !in objects.indices) return
         remember()
         val source = objects[selectedIndex].copy(name = objects[selectedIndex].name + "_copia", x = objects[selectedIndex].x + 1f, z = objects[selectedIndex].z + 1f)
         objects.add(source); selectedIndex = objects.lastIndex
     }
     @Synchronized fun delete() {
-        if (objects.isEmpty()) return
+        if (selectedIndex !in objects.indices) return
         remember()
         objects.removeAt(selectedIndex); selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
     }
@@ -274,7 +274,8 @@ private class SceneRenderer : GLSurfaceView.Renderer {
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
         GLES30.glViewport(0, 0, width, height)
-        Matrix.perspectiveM(projection, 0, 45f, width.toFloat() / height, 0.1f, 100f)
+        val safeHeight = height.coerceAtLeast(1)
+        Matrix.perspectiveM(projection, 0, 45f, width.toFloat() / safeHeight, 0.1f, 100f)
     }
 
     override fun onDrawFrame(gl: GL10?) {
@@ -287,11 +288,13 @@ private class SceneRenderer : GLSurfaceView.Renderer {
         val pos = GLES30.glGetAttribLocation(program, "aPosition"); val color = GLES30.glGetAttribLocation(program, "aColor")
         val tint = GLES30.glGetUniformLocation(program, "uTint")
         objectsToDraw.forEachIndexed { index, object3d ->
-            val externalPath = object3d.sourceAsset?.takeIf { externalMeshes.containsKey(it) }
+            val externalPath = synchronized(this) {
+                object3d.sourceAsset?.takeIf { externalMeshes.containsKey(it) }
+            }
             val vertexBuffer = if (externalPath != null) {
                 val key = "external:$externalPath"
                 meshBuffers.getOrPut(key) {
-                    val mesh = externalMeshes[externalPath]!!
+                    val mesh = synchronized(this) { externalMeshes[externalPath] } ?: FloatArray(0)
                     java.nio.ByteBuffer.allocateDirect(mesh.size * 4).order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer().apply { put(mesh); position(0) }
                 }
             } else {

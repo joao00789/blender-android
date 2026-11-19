@@ -18,6 +18,7 @@ class MainActivity : Activity() {
     private lateinit var viewport: ModelerSurfaceView
     private lateinit var status: TextView
     private lateinit var objectCount: TextView
+    private lateinit var outliner: TextView
     private val transformFields = mutableListOf<EditText>()
     private var updatingTransform = false
     private val pickAssetRequest = 4101
@@ -35,7 +36,7 @@ class MainActivity : Activity() {
         window.setFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN, android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
         viewport = ModelerSurfaceView(this)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(panel) }
-        root.addView(topBar(), LinearLayout.LayoutParams(-1, dp(54)))
+        root.addView(topBar(), LinearLayout.LayoutParams(-1, dp(62)))
         val workspace = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         workspace.addView(toolRail(), LinearLayout.LayoutParams(dp(68), -1))
         workspace.addView(viewport, LinearLayout.LayoutParams(0, -1, 1f))
@@ -48,24 +49,29 @@ class MainActivity : Activity() {
         refreshTransformFields()
     }
 
-    private fun topBar(): View = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), 0, dp(10), 0); background = bg(surface, 0)
-        addView(label("MODELADOR 3D", 15f, text, true), LinearLayout.LayoutParams(dp(150), -1))
-        addView(separator(), LinearLayout.LayoutParams(dp(1), dp(28)))
-        addView(iconButton("＋", "Novo", false) { viewport.clearScene(); updateCount() })
-        addView(iconButton("▣", "Abrir", false) { showMapMenu(openOnly = true) })
-        addView(iconButton("▤", "Salvar", false) { saveMap() })
-        addView(iconButton("⬡", "Mapa", false) { showMapMenu() })
-        addView(iconButton("⇩", "Importar asset", false) { showImportMenu() })
-        addView(separator(), LinearLayout.LayoutParams(dp(1), dp(28)))
-        addView(label("Objeto", 13f, muted, false), LinearLayout.LayoutParams(dp(72), -1))
-        addView(iconButton("⧉", "Duplicar", false) { viewport.duplicateSelected(); updateCount(); setStatus("Objeto duplicado") })
-        addView(iconButton("⌫", "Excluir", false) { viewport.deleteSelected(); updateCount(); setStatus("Objeto excluído") })
-        addView(iconButton("↶", "Desfazer", false) { viewport.undo(); updateCount(); setStatus("Desfazer") })
-        addView(iconButton("↷", "Refazer", false) { viewport.redo(); updateCount(); setStatus("Refazer") })
-        val spacer = Space(this@MainActivity); addView(spacer, LinearLayout.LayoutParams(0, 1, 1f))
-        addView(iconButton("◎", "IA", true) { showAiDialog() })
-        addView(iconButton("⚙", "Configurações", false) { setStatus("Configurações do aplicativo") })
+    private fun topBar(): View = HorizontalScrollView(this).apply {
+        isHorizontalScrollBarEnabled = false
+        setBackgroundColor(surface)
+        addView(LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            addView(label("MODELADOR 3D", 14f, text, true), LinearLayout.LayoutParams(dp(138), -1))
+            addView(separator(), LinearLayout.LayoutParams(dp(1), dp(42)))
+            addView(iconButton("＋", "Novo", false) { safeAction("Novo mapa") { viewport.clearScene(); updateCount() } })
+            addView(iconButton("▣", "Abrir", false) { safeAction("Abrir mapa") { showMapMenu(openOnly = true) } })
+            addView(iconButton("▤", "Salvar", false) { safeAction("Salvar mapa") { saveMap() } })
+            addView(iconButton("⬡", "Mapa", false) { showMapMenu() })
+            addView(iconButton("⇩", "Importar", false) { showImportMenu() })
+            addView(separator(), LinearLayout.LayoutParams(dp(1), dp(42)))
+            addView(iconButton("⧉", "Duplicar", false) { safeAction("Duplicar objeto") { viewport.duplicateSelected(); updateCount() } })
+            addView(iconButton("⌫", "Excluir", false) { safeAction("Excluir objeto") { viewport.deleteSelected(); updateCount() } })
+            addView(iconButton("↶", "Desfazer", false) { safeAction("Desfazer") { viewport.undo(); updateCount() } })
+            addView(iconButton("↷", "Refazer", false) { safeAction("Refazer") { viewport.redo(); updateCount() } })
+            addView(Space(this@MainActivity), LinearLayout.LayoutParams(dp(8), 1))
+            addView(iconButton("◎", "IA", true) { safeAction("Abrir IA") { showAiDialog() } })
+            addView(iconButton("⚙", "Config", false) { showSettingsDialog() })
+        })
     }
 
     private fun toolRail(): View = LinearLayout(this).apply {
@@ -77,7 +83,11 @@ class MainActivity : Activity() {
     }
 
     private fun addTool(parent: LinearLayout, glyph: String, title: String, tool: String) {
-        parent.addView(iconButton(glyph, title, tool == "select") { if (tool == "add") showAddMenu() else { viewport.setTool(tool); setStatus(title) } }, LinearLayout.LayoutParams(-1, dp(52)))
+        parent.addView(iconButton(glyph, title, tool == "select") {
+            if (tool == "add") showAddMenu()
+            else if (tool == "extrude" || tool == "bevel" || tool == "loop") showComingSoon(title)
+            else safeAction(title) { viewport.setTool(tool); setStatus(title) }
+        }, LinearLayout.LayoutParams(-1, dp(58)))
     }
 
     private fun propertiesPanel(): View = LinearLayout(this).apply {
@@ -89,7 +99,8 @@ class MainActivity : Activity() {
         addView(separator(), LinearLayout.LayoutParams(-1, dp(18))); addView(label("MATERIAL", 11f, muted, true), LinearLayout.LayoutParams(-1, dp(28)))
         addView(TextView(this@MainActivity).apply { text = "  ▰  Material padrão\n      Base color     #5B89FF"; setTextColor(this@MainActivity.text); textSize = 13f; setPadding(dp(6), dp(8), 0, dp(8)); background = bg(Color.rgb(34, 38, 48), 8) }, LinearLayout.LayoutParams(-1, dp(68)))
         val fill = Space(this@MainActivity); addView(fill, LinearLayout.LayoutParams(1, 0, 1f)); addView(label("OUTLINER", 11f, muted, true), LinearLayout.LayoutParams(-1, dp(28)))
-        addView(label("▾  Coleção\n    ◇  Cubo", 13f, text, false), LinearLayout.LayoutParams(-1, dp(56)))
+        outliner = label("▾  Coleção\n    ◇  Cubo", 13f, text, false)
+        addView(outliner, LinearLayout.LayoutParams(-1, dp(56)))
     }
 
     private fun addTransformRow(parent: LinearLayout, name: String, component: Int) {
@@ -97,7 +108,7 @@ class MainActivity : Activity() {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         repeat(3) { axis ->
             val field = EditText(this).apply {
-                textSize = 11f; setTextColor(this@MainActivity.text); setSingleLine(true); gravity = Gravity.CENTER; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED; background = bg(Color.rgb(34, 38, 48), 5)
+                hint = arrayOf("X", "Y", "Z")[axis]; textSize = 11f; setTextColor(this@MainActivity.text); setHintTextColor(muted); setSingleLine(true); gravity = Gravity.CENTER; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED; background = bg(Color.rgb(34, 38, 48), 5)
                 setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) commitTransformFields() }
             }
             transformFields.add(field); row.addView(field, LinearLayout.LayoutParams(0, dp(30), 1f).apply { setMargins(if (axis == 0) 0 else dp(4), 0, 0, 0) })
@@ -113,13 +124,48 @@ class MainActivity : Activity() {
     }
 
     private fun statusBar(): View = TextView(this).apply { text = "  Viewport  |  Coleção  |  Cubo  |  OpenGL ES 3.0 nativo"; setTextColor(muted); textSize = 10f; gravity = Gravity.CENTER_VERTICAL; background = bg(Color.rgb(15, 17, 22), 0) }
-    private fun iconButton(glyph: String, title: String, active: Boolean, action: () -> Unit): TextView = TextView(this).apply { text = glyph; contentDescription = title; gravity = Gravity.CENTER; textSize = if (active) 22f else 19f; setTextColor(if (active) Color.WHITE else muted); typeface = Typeface.DEFAULT_BOLD; background = bg(if (active) accent else Color.TRANSPARENT, 7); setOnClickListener { action() }; layoutParams = LinearLayout.LayoutParams(dp(48), dp(42)).apply { setMargins(dp(2), 0, dp(2), 0) } }
+    private fun iconButton(glyph: String, title: String, active: Boolean, action: () -> Unit): TextView = TextView(this).apply {
+        text = "$glyph\n$title"
+        contentDescription = title
+        gravity = Gravity.CENTER
+        textSize = if (active) 10f else 9f
+        setTextColor(if (active) Color.WHITE else muted)
+        typeface = Typeface.DEFAULT_BOLD
+        isAllCaps = false
+        background = bg(if (active) accent else Color.TRANSPARENT, 7)
+        setOnClickListener { action() }
+        layoutParams = LinearLayout.LayoutParams(dp(60), dp(52)).apply { setMargins(dp(2), 0, dp(2), 0) }
+    }
     private fun separator(): View = View(this).apply { setBackgroundColor(Color.rgb(54, 59, 70)) }
     private fun label(value: String, size: Float, color: Int, bold: Boolean) = TextView(this).apply { text = value; textSize = size; setTextColor(color); gravity = Gravity.CENTER_VERTICAL; if (bold) typeface = Typeface.DEFAULT_BOLD }
     private fun bg(color: Int, radius: Int) = GradientDrawable().apply { setColor(color); if (radius > 0) cornerRadius = dp(radius).toFloat() }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     private fun setStatus(value: String) { status.text = "  $value" }
-    private fun updateCount() { objectCount.text = "●  ${viewport.selectedName() ?: "Cena vazia"}  (${viewport.objectCount()})" }
+    private fun safeAction(label: String, action: () -> Unit) {
+        runCatching { action() }
+            .onSuccess { setStatus(label) }
+            .onFailure { error -> setStatus("Não foi possível: ${error.message ?: "operação inválida"}") }
+    }
+    private fun showComingSoon(tool: String) {
+        AlertDialog.Builder(this)
+            .setTitle("$tool ainda está em desenvolvimento")
+            .setMessage("Esta ferramenta será ativada quando o modo de edição de malha estiver pronto. Ela não altera a cena agora.")
+            .setPositiveButton("Entendi", null)
+            .show()
+    }
+    private fun showSettingsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Configurações")
+            .setMessage("Use a tela IA para configurar provedores e chaves.\n\nControles: toque no viewport para orbitar, dois dedos para zoom e mouse/teclado quando disponíveis.")
+            .setPositiveButton("Fechar", null)
+            .show()
+    }
+    private fun updateCount() {
+        val selected = viewport.selectedName()
+        val count = viewport.objectCount()
+        objectCount.text = "●  ${selected ?: "Nenhum objeto selecionado"}  ($count)"
+        if (::outliner.isInitialized) outliner.text = "▾  Coleção\n    ◇  ${selected ?: "Cena vazia"}"
+    }
     private fun refreshTransformFields() {
         if (!::viewport.isInitialized || transformFields.size != 9) return
         val values = viewport.selectedTransform(); updatingTransform = true

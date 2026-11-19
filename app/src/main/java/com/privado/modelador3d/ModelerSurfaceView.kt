@@ -309,7 +309,6 @@ private class SceneRenderer : GLSurfaceView.Renderer {
             if (index == selectedIndex) GLES30.glUniform4f(tint, 1.25f, 1.25f, 1.25f, 1f) else GLES30.glUniform4f(tint, 1f, 1f, 1f, 1f)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, vertexBuffer.limit() / 6)
             if (currentTool == "edit" && index == selectedIndex) {
-                GLES30.glPointSize(10f)
                 GLES30.glDrawArrays(GLES30.GL_POINTS, 0, vertexBuffer.limit() / 6)
             }
         }

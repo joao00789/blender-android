@@ -63,7 +63,7 @@ class MainActivity : Activity() {
         addView(iconButton("⌫", "Excluir", false) { viewport.deleteSelected(); updateCount(); setStatus("Objeto excluído") })
         addView(iconButton("↶", "Desfazer", false) { viewport.undo(); updateCount(); setStatus("Desfazer") })
         addView(iconButton("↷", "Refazer", false) { viewport.redo(); updateCount(); setStatus("Refazer") })
-        val spacer = Space(this); addView(spacer, LinearLayout.LayoutParams(0, 1, 1f))
+        val spacer = Space(this@MainActivity); addView(spacer, LinearLayout.LayoutParams(0, 1, 1f))
         addView(iconButton("◎", "IA", true) { showAiDialog() })
         addView(iconButton("⚙", "Configurações", false) { setStatus("Configurações do aplicativo") })
     }
@@ -73,7 +73,7 @@ class MainActivity : Activity() {
         addTool(this, "⌖", "Selecionar", "select"); addTool(this, "✣", "Mover", "move"); addTool(this, "⟳", "Girar", "rotate"); addTool(this, "↗", "Escalar", "scale")
         addView(separator(), LinearLayout.LayoutParams(dp(42), dp(1)).apply { setMargins(0, dp(10), 0, dp(10)) })
         addTool(this, "＋", "Adicionar", "add"); addTool(this, "▣", "Extrudar", "extrude"); addTool(this, "⌁", "Bevel", "bevel"); addTool(this, "◇", "Loop cut", "loop")
-        val spacer = Space(this); addView(spacer, LinearLayout.LayoutParams(1, 0, 1f)); addTool(this, "▥", "Modo edição", "edit")
+        val spacer = Space(this@MainActivity); addView(spacer, LinearLayout.LayoutParams(1, 0, 1f)); addTool(this, "▥", "Modo edição", "edit")
     }
 
     private fun addTool(parent: LinearLayout, glyph: String, title: String, tool: String) {
@@ -88,7 +88,7 @@ class MainActivity : Activity() {
         addTransformRow(this, "Posição", 0); addTransformRow(this, "Rotação", 1); addTransformRow(this, "Escala", 2)
         addView(separator(), LinearLayout.LayoutParams(-1, dp(18))); addView(label("MATERIAL", 11f, muted, true), LinearLayout.LayoutParams(-1, dp(28)))
         addView(TextView(this@MainActivity).apply { text = "  ▰  Material padrão\n      Base color     #5B89FF"; setTextColor(this@MainActivity.text); textSize = 13f; setPadding(dp(6), dp(8), 0, dp(8)); background = bg(Color.rgb(34, 38, 48), 8) }, LinearLayout.LayoutParams(-1, dp(68)))
-        val fill = Space(this); addView(fill, LinearLayout.LayoutParams(1, 0, 1f)); addView(label("OUTLINER", 11f, muted, true), LinearLayout.LayoutParams(-1, dp(28)))
+        val fill = Space(this@MainActivity); addView(fill, LinearLayout.LayoutParams(1, 0, 1f)); addView(label("OUTLINER", 11f, muted, true), LinearLayout.LayoutParams(-1, dp(28)))
         addView(label("▾  Coleção\n    ◇  Cubo", 13f, text, false), LinearLayout.LayoutParams(-1, dp(56)))
     }
 

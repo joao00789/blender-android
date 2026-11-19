@@ -131,7 +131,8 @@ private class SceneRenderer : GLSurfaceView.Renderer {
         val index = objects.size
         val extension = name.substringAfterLast('.', "").lowercase()
         val displayName = name.substringBeforeLast('.', name).ifBlank { "Modelo importado" }
-        if (path != null) MeshImporter.read(File(path))?.let { externalMeshes[path] = it }
+        val importedPath = path
+        if (importedPath != null) MeshImporter.read(File(importedPath))?.let { externalMeshes[importedPath] = it }
         objects.add(
             SceneObject(
                 name = displayName + "_" + (index + 1),
@@ -205,9 +206,9 @@ private class SceneRenderer : GLSurfaceView.Renderer {
                 JSONObject()
                     .put("name", object3d.name)
                     .put("kind", object3d.kind)
-                    .put("position", JSONArray(listOf(object3d.x, object3d.y, object3d.z)))
-                    .put("rotation", JSONArray(listOf(object3d.rx, object3d.ry, object3d.rz)))
-                    .put("scale", JSONArray(listOf(object3d.sx, object3d.sy, object3d.sz)))
+                    .put("position", JSONArray(listOf<Any>(object3d.x, object3d.y, object3d.z)))
+                    .put("rotation", JSONArray(listOf<Any>(object3d.rx, object3d.ry, object3d.rz)))
+                    .put("scale", JSONArray(listOf<Any>(object3d.sx, object3d.sy, object3d.sz)))
                     .put("texturePath", object3d.texturePath ?: JSONObject.NULL)
                     .put("sourceAsset", object3d.sourceAsset ?: JSONObject.NULL)
             )
